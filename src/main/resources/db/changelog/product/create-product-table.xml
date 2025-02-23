@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="create-product-table" author="Ilja Zholudev">
+        <createTable tableName="product">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="price" type="DECIMAL(19,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantity" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="color_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="size_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="image_data" type="blob">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+                baseTableName="product" baseColumnNames="color_id"
+                referencedTableName="color" referencedColumnNames="id"
+                constraintName="fk_product_color"/>
+        <addForeignKeyConstraint
+                baseTableName="product" baseColumnNames="size_id"
+                referencedTableName="size" referencedColumnNames="id"
+                constraintName="fk_product_size"/>
+        <addForeignKeyConstraint
+                baseTableName="product" baseColumnNames="type_id"
+                referencedTableName="type" referencedColumnNames="id"
+                constraintName="fk_product_type"/>
+    </changeSet>
+</databaseChangeLog>
