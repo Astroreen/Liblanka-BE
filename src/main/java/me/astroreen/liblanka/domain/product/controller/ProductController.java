@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -74,6 +75,7 @@ public class ProductController {
         return ResponseEntity.ofNullable(service.filter(filter, PageRequest.of(--page, pageSize)));
     }
 
+    @PreAuthorize("isAuthenticated()")
     @PostMapping
     public ResponseEntity<List<Product>> createProducts(@RequestBody @Valid List<ProductService.ProductRequest> productRequests) {
         List<Product> createdProducts = service.createProducts(productRequests);

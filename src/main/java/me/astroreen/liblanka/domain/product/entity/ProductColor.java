@@ -9,6 +9,7 @@ import lombok.*;
 @NoArgsConstructor
 @Getter
 @Setter
+@Table(name = "color")
 public class ProductColor {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

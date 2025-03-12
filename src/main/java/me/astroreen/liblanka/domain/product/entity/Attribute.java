@@ -11,6 +11,7 @@ import java.util.HashSet;
 @NoArgsConstructor
 @Getter
 @Setter
+@Table(name = "attribute")
 public class Attribute {
 
     @Id

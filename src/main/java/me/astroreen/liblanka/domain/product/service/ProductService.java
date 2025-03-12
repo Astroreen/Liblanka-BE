@@ -9,6 +9,7 @@ import me.astroreen.liblanka.domain.product.entity.ProductColor;
 import me.astroreen.liblanka.domain.product.entity.ProductSize;
 import me.astroreen.liblanka.domain.product.entity.ProductType;
 import me.astroreen.liblanka.domain.product.repository.ProductRepository;
+import me.astroreen.liblanka.domain.product.repository.ProductTypeRepository;
 import me.astroreen.liblanka.domain.product.repository.SizeRepository;
 import me.astroreen.liblanka.domain.product.repository.specification.ProductSpecifications;
 import org.jetbrains.annotations.NotNull;
@@ -17,15 +18,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.Collections;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 public class ProductService {
     private @NonNull ProductRepository productRepository;
+    private @NonNull ProductTypeRepository productTypeRepository;
     private @NonNull SizeRepository sizeRepository;
 
     public List<Product> createProducts(@NotNull List<ProductRequest> productRequests) {
@@ -46,6 +45,25 @@ public class ProductService {
 
     public Page<Product> filter(ProductSpecifications.Filter filter, Pageable pageable) {
         return productRepository.findAll(ProductSpecifications.filterBy(filter), pageable);
+    }
+
+    /// TYPES
+
+    public void createProductTypes(@NonNull List<String> names){
+        if(names.size() == 1) {
+            productTypeRepository.save(createProductType(names.getFirst()));
+            return;
+        }
+
+        Set<ProductType> types = HashSet.newHashSet(names.size());
+        for(String name : names){
+            types.add(createProductType(name));
+        }
+        productTypeRepository.saveAll(types);
+    }
+
+    public List<ProductType> getAllProductTypes() {
+        return productTypeRepository.findAll();
     }
 
     private Product createProduct(@NonNull ProductRequest request) {
@@ -69,6 +87,10 @@ public class ProductService {
         }
 
         return productBuilder.build();
+    }
+
+    private ProductType createProductType(@NonNull String name){
+        return ProductType.builder().name(name).build();
     }
 
     public record ProductRequest(@NonNull ProductType type, @NonNull String name, @Nullable String description, @NonNull @Min(0) BigDecimal price,
