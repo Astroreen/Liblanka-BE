@@ -1,6 +1,7 @@
 package me.astroreen.liblanka.domain.product.service;
 
 import jakarta.annotation.Nullable;
+import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.Min;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.logging.Logger;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +28,7 @@ public class ProductService {
     private @NonNull ProductRepository productRepository;
     private @NonNull ProductTypeRepository productTypeRepository;
     private @NonNull SizeRepository sizeRepository;
+    private final Logger logger = Logger.getLogger(getClass().getName());
 
     public List<Product> createProducts(@NotNull List<ProductRequest> productRequests) {
         List<Product> products = productRequests.stream().map(this::createProduct).toList();
@@ -64,6 +67,20 @@ public class ProductService {
 
     public List<ProductType> getAllProductTypes() {
         return productTypeRepository.findAll();
+    }
+
+    @Transactional
+    public void deleteProductType(String delete, String replace) {
+        Optional<ProductType> toDelete = productTypeRepository.findByName(delete);
+        Optional<ProductType> toReplace = productTypeRepository.findByName(replace);
+
+        if(toDelete.isEmpty() || toReplace.isEmpty()) {
+            logger.warning(() -> "Could not find values (" + delete + ", " + replace + ") in products' type table");
+            return;
+        }
+
+        productRepository.updateProductTypeValue(toDelete.get(), toReplace.get());
+        productTypeRepository.delete(toDelete.get());
     }
 
     private Product createProduct(@NonNull ProductRequest request) {

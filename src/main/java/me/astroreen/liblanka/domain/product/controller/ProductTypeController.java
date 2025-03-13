@@ -29,4 +29,12 @@ public class ProductTypeController {
     public void createProductTypes(@RequestBody @Valid List<String> names){
         productService.createProductTypes(names);
     }
+
+    @PreAuthorize("isAuthenticated()")
+    @DeleteMapping
+    public void deleteProductType(
+            @RequestParam(name = "delete") String delete,
+            @RequestParam(name = "replace") String replace) {
+        productService.deleteProductType(delete, replace);
+    }
 }
