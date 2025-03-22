@@ -2,6 +2,7 @@ package me.astroreen.liblanka.domain.product.repository;
 
 import jakarta.transaction.Transactional;
 import me.astroreen.liblanka.domain.product.entity.Product;
+import me.astroreen.liblanka.domain.product.entity.ProductSize;
 import me.astroreen.liblanka.domain.product.entity.ProductType;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.data.domain.Page;
@@ -20,6 +21,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Transactional
     @Query("UPDATE Product p SET p.type = :to WHERE p.type = :from")
     void updateProductTypeValue(@Param("from") ProductType replaceFrom, @Param("to") ProductType replaceTo);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Product p SET p.size = :to WHERE p.size = :from")
+    void updateProductSizeValue(@Param("from") ProductSize replaceFrom, @Param("to") ProductSize replaceTo);
 
     Page<Product> findAll(@NotNull Specification<Product> productSpecification, Pageable pageable);
 }

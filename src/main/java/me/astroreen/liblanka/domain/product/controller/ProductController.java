@@ -3,6 +3,7 @@ package me.astroreen.liblanka.domain.product.controller;
 import jakarta.validation.Valid;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import me.astroreen.liblanka.domain.product.dto.ProductAdminInformation;
 import me.astroreen.liblanka.domain.product.entity.Product;
 import me.astroreen.liblanka.domain.product.repository.specification.ProductSpecifications;
 import me.astroreen.liblanka.domain.product.service.ProductService;
@@ -23,11 +24,6 @@ public class ProductController {
 
     private static final int MAX_PAGE_SIZE = 50;
     private @NonNull ProductService service;
-
-    @GetMapping("/{id}")
-    public ResponseEntity<Product> getProductById(@PathVariable(name = "id") Long id) {
-        return ResponseEntity.ofNullable(service.getProductById(id));
-    }
 
     @GetMapping
     public ResponseEntity<Page<Product>> getProductsWithFilterOption(
@@ -73,6 +69,23 @@ public class ProductController {
         );
 
         return ResponseEntity.ofNullable(service.filter(filter, PageRequest.of(--page, pageSize)));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Product> getProductById(@PathVariable(name = "id") Long id) {
+        return ResponseEntity.ofNullable(service.getProductById(id));
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/all-information")
+    public ResponseEntity<ProductAdminInformation> getAllAdminProductInformation() {
+        ProductAdminInformation info = ProductAdminInformation.builder()
+                .types(service.getAllProductTypes())
+                .sizes(service.getAllProductSizes())
+                .colors(service.getAllProductColors())
+                .attributes(service.getAllProductAttributes())
+                .build();
+        return ResponseEntity.ok(info);
     }
 
     @PreAuthorize("isAuthenticated()")
