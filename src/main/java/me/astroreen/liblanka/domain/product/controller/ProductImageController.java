@@ -1,4 +1,4 @@
 package me.astroreen.liblanka.domain.product.controller;
 
-public class ProductTypeController {
+public class ProductImageController {
 }
