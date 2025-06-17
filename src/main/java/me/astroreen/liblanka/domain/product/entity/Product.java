@@ -2,9 +2,11 @@ package me.astroreen.liblanka.domain.product.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
-import java.util.HashSet;
+import java.util.List;
 
 @Entity
 @Builder
@@ -12,36 +14,32 @@ import java.util.HashSet;
 @NoArgsConstructor
 @Getter
 @Setter
+@Table(name = "product")
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne
-    @JoinColumn(name = "type_id")
+    @Column(nullable = false)
+    private String name;
+
+    @ManyToOne
+    @JoinColumn(name = "type_id", nullable = false)
     private ProductType type;
 
-    private String name;
+    @Column(columnDefinition = "TEXT")
     private String description;
+
+    @Column(nullable = false)
     private BigDecimal price;
-    private Integer quantity;
 
-    @ManyToOne
-    @JoinColumn(name = "color_id")
-    private ProductColor color;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "JSONB")
+    private List<String> attributes; // JSONB для хранения атрибутов
 
-    @ManyToOne
-    @JoinColumn(name = "size_id")
-    private ProductSize size;
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProductVariant> variants;
 
-    @ManyToMany
-    @JoinTable(
-            name = "product_attributes",
-            joinColumns = @JoinColumn(name = "product_id"),
-            inverseJoinColumns = @JoinColumn(name = "attribute_id")
-    )
-    private HashSet<Attribute> attributes;
-
-    @Lob
-    private byte[] imageData;
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProductImage> images;
 }

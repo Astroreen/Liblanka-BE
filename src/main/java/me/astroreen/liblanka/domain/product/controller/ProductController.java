@@ -1,97 +1,189 @@
 package me.astroreen.liblanka.domain.product.controller;
 
-import jakarta.validation.Valid;
-import lombok.NonNull;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import me.astroreen.liblanka.domain.product.dto.ProductAdminInformation;
+import me.astroreen.liblanka.domain.product.dto.ProductCardDto;
+import me.astroreen.liblanka.domain.product.dto.ProductConstructionInfoDto;
 import me.astroreen.liblanka.domain.product.entity.Product;
-import me.astroreen.liblanka.domain.product.repository.specification.ProductSpecifications;
+import me.astroreen.liblanka.domain.product.entity.specifications.ProductSpecifications;
+import me.astroreen.liblanka.domain.product.service.ProductImageService;
 import me.astroreen.liblanka.domain.product.service.ProductService;
+import me.astroreen.liblanka.domain.product.service.ProductVariantService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.util.CollectionUtils;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Base64;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @RestController
 @RequestMapping("/storage/products")
 @RequiredArgsConstructor
 public class ProductController {
 
-    private static final int MAX_PAGE_SIZE = 50;
-    private @NonNull ProductService service;
+    private final ProductService productService;
+    private final ProductVariantService productVariantService;
+    private final ProductImageService productImageService;
 
-    @GetMapping
-    public ResponseEntity<Page<Product>> getProductsWithFilterOption(
-            @RequestParam(name = "name", required = false) String name,
-            @RequestParam(name = "price-from", required = false) BigDecimal priceFrom,
-            @RequestParam(name = "price-to", required = false) BigDecimal priceTo,
-            @RequestParam(name = "quantity-from", required = false) Integer quantityFrom,
-            @RequestParam(name = "quantity-to", required = false) Integer quantityTo,
-            @RequestParam(name = "color-id", required = false) List<Long> colorIds,
-            @RequestParam(name = "size-id", required = false) List<Long> sizeIds,
-            @RequestParam(name = "attribute-id", required = false) List<Long> attributeIds,
-            @RequestParam(name = "page", required = false, defaultValue = "1") Integer page,
-            @RequestParam(name = "page-size", required = false, defaultValue = "20") Integer pageSize
-    ) {
-
-        if (page <= 0) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        if (pageSize < 0 || pageSize > MAX_PAGE_SIZE) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        if ((priceFrom != null && priceFrom.doubleValue() < 0) ||
-                (priceFrom != null && priceTo != null && priceTo.compareTo(priceFrom) < 0)) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        if ((quantityFrom != null && quantityFrom < 0) ||
-                (quantityFrom != null && quantityTo != null && quantityTo < quantityFrom)) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        var filter = new ProductSpecifications.Filter(
-                name,
-                priceFrom,
-                priceTo,
-                quantityFrom,
-                quantityTo,
-                colorIds,
-                sizeIds,
-                attributeIds
-        );
-
-        return ResponseEntity.ofNullable(service.filter(filter, PageRequest.of(--page, pageSize)));
+    @GetMapping("/information")
+    public ResponseEntity<ProductConstructionInfoDto> getProductConstructionInfo() {
+        ProductConstructionInfoDto answer = productService.getProductConstructionInfo();
+        return ResponseEntity.ok(answer);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Product> getProductById(@PathVariable(name = "id") Long id) {
-        return ResponseEntity.ofNullable(service.getProductById(id));
+    public ResponseEntity<Product> getProduct(@PathVariable Long id) {
+        if(id == null || id < 0) return ResponseEntity.badRequest().build();
+        Product product = null;
+
+        try {
+            product = productService.findById(id);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(product);
     }
 
-    @PreAuthorize("isAuthenticated()")
-    @GetMapping("/all-information")
-    public ResponseEntity<ProductAdminInformation> getAllAdminProductInformation() {
-        ProductAdminInformation info = ProductAdminInformation.builder()
-                .types(service.getAllProductTypes())
-                .sizes(service.getAllProductSizes())
-                .colors(service.getAllProductColors())
-                .attributes(service.getAllProductAttributes())
-                .build();
-        return ResponseEntity.ok(info);
+    @Transactional
+    @GetMapping("/filter")
+    public ResponseEntity<Page<ProductCardDto>> filterProducts(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Long typeId,
+            @RequestParam(required = false) List<Long> sizeIds,
+            @RequestParam(required = false) List<Long> colorIds,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        // Validate input parameters
+        if (size <= 0 || size > 100) size = 20;
+        if (page < 0) page = 0;
+        if (typeId != null && typeId < 0) return ResponseEntity.badRequest().build();
+        if (sizeIds != null && sizeIds.stream().anyMatch(id -> id < 0)) return ResponseEntity.badRequest().build();
+        if (colorIds != null && colorIds.stream().anyMatch(id -> id < 0)) return ResponseEntity.badRequest().build();
+
+        // Create specification
+        Specification<Product> spec = ProductSpecifications.filterBy(
+                ProductSpecifications.Filter.builder()
+                        .nameLike(name)
+                        .typeId(typeId)
+                        .sizeIds(sizeIds)
+                        .colorIds(colorIds)
+                        .build()
+        );
+
+        // Create pageable
+        Pageable pageable = PageRequest.of(page, size);
+
+        // Get filtered products
+        Page<Product> products = productService.findAll(spec, pageable);
+
+        // Convert to DTOs
+        Page<ProductCardDto> productDtos = products.map(product -> {
+            String imageData = null;
+            if (!CollectionUtils.isEmpty(product.getImages())) {
+                byte[] firstImageData = product.getImages().getFirst().getImageData();
+                if (firstImageData != null && firstImageData.length > 0) {
+                    imageData = Base64.getEncoder().encodeToString(firstImageData);
+                }
+            }
+
+            return ProductCardDto.builder()
+                    .id(product.getId())
+                    .name(product.getName())
+                    .description(product.getDescription())
+                    .price(product.getPrice())
+                    .imageData(imageData)
+                    .build();
+        });
+
+        return ResponseEntity.ok(productDtos);
     }
 
-    @PreAuthorize("isAuthenticated()")
-    @PostMapping
-    public ResponseEntity<List<Product>> createProducts(@RequestBody @Valid List<ProductService.ProductRequest> productRequests) {
-        List<Product> createdProducts = service.createProducts(productRequests);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdProducts);
+    @PreAuthorize("isAuthenticated() and hasRole('ADMIN')")
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Transactional
+    public ResponseEntity<Product> createProduct(
+            @RequestPart("name") String name,
+            @RequestPart("typeId") String typeId,
+            @RequestPart(value = "description", required = false) String description,
+            @RequestPart("price") String price,
+            @RequestPart(value = "attributes", required = false) String jsonProductAttributes,
+            @RequestPart(value = "variants") String jsonProductVariants,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images,
+            @RequestPart(value = "colorIds", required = false) String jsonColorIds
+    ) {
+        if (price == null) return ResponseEntity.badRequest().build();
+        BigDecimal transformedPrice = new BigDecimal(price).setScale(2, RoundingMode.FLOOR);
+        if(transformedPrice.compareTo(BigDecimal.ZERO) <= 0) return ResponseEntity.badRequest().build();
+
+        if (typeId == null || typeId.isBlank()) return ResponseEntity.badRequest().build();
+        long transformedTypeId = 0;
+        try {
+            transformedTypeId = Long.parseLong(typeId);
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (transformedTypeId < 0) return ResponseEntity.badRequest().build();
+
+        ObjectMapper mapper = new ObjectMapper();
+        List<String> parsedAttributes = null;
+        if (jsonProductAttributes != null && !jsonProductAttributes.isBlank()) {
+            try {
+                parsedAttributes = mapper.readValue(jsonProductAttributes, new TypeReference<List<String>>() {});
+            } catch (JsonProcessingException e) {
+                throw new IllegalArgumentException("Invalid JSON format for attributes: " + jsonProductAttributes);
+            }
+        }
+
+        if (name == null || name.isBlank()) return ResponseEntity.badRequest().build();
+        if (jsonProductVariants == null || jsonProductVariants.isBlank()) return ResponseEntity.badRequest().build();
+
+        try {
+            Product savedProduct = productService.createProduct(name, transformedTypeId, description, transformedPrice, parsedAttributes);
+
+            // Parsing JSON representation of product variants
+            savedProduct = productVariantService.parseJsonProductVariants(savedProduct, jsonProductVariants);
+
+            // Saving images
+            if (images != null && !images.isEmpty()) {
+                savedProduct = jsonColorIds == null || jsonColorIds.isBlank() ?
+                        productImageService.saveAllImages(savedProduct, images) :
+                        productImageService.saveImagesWithColorData(savedProduct, images, jsonColorIds);
+            }
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedProduct);
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        } catch (IllegalArgumentException | NoSuchElementException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PreAuthorize("isAuthenticated() and hasRole('ADMIN')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
+        if(id == null || id < 0) return ResponseEntity.badRequest().build();
+        try {
+            productService.deleteProduct(id);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.noContent().build();
     }
 }

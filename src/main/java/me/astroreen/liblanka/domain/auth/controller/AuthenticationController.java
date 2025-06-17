@@ -4,7 +4,9 @@ import lombok.RequiredArgsConstructor;
 import me.astroreen.liblanka.domain.auth.dto.AuthenticationRequest;
 import me.astroreen.liblanka.domain.auth.dto.AuthenticationResponse;
 import me.astroreen.liblanka.domain.auth.dto.RegisterRequest;
+import me.astroreen.liblanka.domain.auth.exception.EmailAlreadyInUseException;
 import me.astroreen.liblanka.domain.auth.service.AuthenticationService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,7 +24,11 @@ public class AuthenticationController {
     public ResponseEntity<AuthenticationResponse> register(
             @RequestBody RegisterRequest request
     ) {
-        authenticationService.register(request);
+        try {
+            authenticationService.register(request);
+        } catch (EmailAlreadyInUseException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(null);
+        }
         return ResponseEntity.ok().build();
     }
 

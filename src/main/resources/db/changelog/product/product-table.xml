@@ -8,7 +8,7 @@
     <include file="create-color-table.xml" relativeToChangelogFile="true"/>
     <include file="create-size-table.xml" relativeToChangelogFile="true"/>
     <include file="create-type-table.xml" relativeToChangelogFile="true"/>
-    <include file="create-attribute-table.xml" relativeToChangelogFile="true"/>
     <include file="create-product-table.xml" relativeToChangelogFile="true"/>
-    <include file="create-product-attributes-table.xml" relativeToChangelogFile="true"/>
+    <include file="create-product-variants-table.xml" relativeToChangelogFile="true"/>
+    <include file="create-image-table.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

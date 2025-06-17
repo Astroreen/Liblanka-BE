@@ -1,7 +1,9 @@
 package me.astroreen.liblanka.domain.product.controller;
 
 import lombok.RequiredArgsConstructor;
+import me.astroreen.liblanka.domain.product.entity.ProductSize;
 import me.astroreen.liblanka.domain.product.entity.ProductType;
+import me.astroreen.liblanka.domain.product.service.ProductSizeService;
 import me.astroreen.liblanka.domain.product.service.ProductTypeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,23 +13,23 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/storage/products/types")
+@RequestMapping("/storage/products/sizes")
 @RequiredArgsConstructor
-public class ProductTypeController {
+public class ProductSizeController {
 
-    private final ProductTypeService productTypeService;
+    private final ProductSizeService productSizeService;
 
     @GetMapping
-    public ResponseEntity<List<ProductType>> getAllProductTypes() {
-        return ResponseEntity.ok(productTypeService.findAll());
+    public ResponseEntity<List<ProductSize>> getAllProductSizes() {
+        return ResponseEntity.ok(productSizeService.findAll());
     }
 
     @PostMapping
     @PreAuthorize("isAuthenticated() and hasRole('ADMIN')")
-    public ResponseEntity<ProductType> createNewProductType(@RequestParam(name = "name") String name) {
-        final ProductType type;
+    public ResponseEntity<ProductSize> createNewProductSize(@RequestParam(name = "name") String name) {
+        final ProductSize type;
         try {
-            type = productTypeService.create(name);
+            type = productSizeService.create(name);
             return ResponseEntity.status(HttpStatus.CREATED).body(type);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
@@ -36,9 +38,9 @@ public class ProductTypeController {
 
     @DeleteMapping
     @PreAuthorize("isAuthenticated() and hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteProductType(@RequestBody ProductType type){
-        if(type == null) return ResponseEntity.badRequest().build();
-        productTypeService.delete(type);
+    public ResponseEntity<Void> deleteProductSize(@RequestBody ProductSize size){
+        if(size == null) return ResponseEntity.badRequest().build();
+        productSizeService.delete(size);
         return ResponseEntity.noContent().build();
     }
 }

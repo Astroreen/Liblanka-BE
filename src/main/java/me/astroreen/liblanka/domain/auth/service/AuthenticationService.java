@@ -1,7 +1,6 @@
 package me.astroreen.liblanka.domain.auth.service;
 
 import lombok.RequiredArgsConstructor;
-import me.astroreen.liblanka.common.excpetion.ResourceNotFoundException;
 import me.astroreen.liblanka.domain.auth.UserRole;
 import me.astroreen.liblanka.domain.auth.dto.AuthenticationRequest;
 import me.astroreen.liblanka.domain.auth.dto.AuthenticationResponse;
@@ -9,12 +8,16 @@ import me.astroreen.liblanka.domain.auth.dto.RegisterRequest;
 import me.astroreen.liblanka.domain.auth.entity.User;
 import me.astroreen.liblanka.domain.auth.exception.EmailAlreadyInUseException;
 import me.astroreen.liblanka.domain.auth.repository.UserRepository;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.NoSuchElementException;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -25,14 +28,19 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
 
-    public void register(RegisterRequest request) {
+    /**
+     * Register new user into the database.
+     * @param request dto of the request that contains username, email and password
+     * @throws EmailAlreadyInUseException thrown only when that email already exists
+     */
+    public void register(@NotNull RegisterRequest request) throws EmailAlreadyInUseException{
 
-        var existingUser = userRepository.findByEmail(request.getEmail());
+        Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
         if (existingUser.isPresent()) {
             throw new EmailAlreadyInUseException();
         }
 
-        var user =
+        User user =
                 User.builder()
                         .name(request.getName())
                         .email(request.getEmail())
@@ -43,13 +51,13 @@ public class AuthenticationService {
         userRepository.save(user);
     }
 
-    public AuthenticationResponse login(AuthenticationRequest request) {
+    public AuthenticationResponse login(@NotNull AuthenticationRequest request) throws NoSuchElementException {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
         var user =
                 userRepository
                         .findByEmail(request.getEmail())
-                        .orElseThrow(() -> new ResourceNotFoundException(UserService.USER_NOT_FOUND));
+                        .orElseThrow(() -> new NoSuchElementException(UserService.USER_NOT_FOUND));
 
         var jwtToken = jwtService.generateToken(user);
 

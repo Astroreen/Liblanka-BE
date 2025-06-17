@@ -10,10 +10,10 @@
             <column name="id" type="BIGINT" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
-            <column name="name" type="VARCHAR(50)">
+            <column name="name" type="VARCHAR(255)">
                 <constraints nullable="false" unique="true"/>
             </column>
-            <column name="hex_value" type="CHAR(7)">
+            <column name="hex" type="VARCHAR(7)">
                 <constraints nullable="false" unique="true"/>
             </column>
         </createTable>

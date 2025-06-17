@@ -1,8 +1,9 @@
 package me.astroreen.liblanka.domain.product.controller;
 
 import lombok.RequiredArgsConstructor;
-import me.astroreen.liblanka.domain.product.entity.ProductType;
-import me.astroreen.liblanka.domain.product.service.ProductTypeService;
+import me.astroreen.liblanka.domain.product.entity.ProductColor;
+import me.astroreen.liblanka.domain.product.service.ProductColorService;
+import me.astroreen.liblanka.domain.product.util.ColorValidator;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -11,23 +12,26 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/storage/products/types")
+@RequestMapping("/storage/products/colors")
 @RequiredArgsConstructor
-public class ProductTypeController {
+public class ProductColorController {
 
-    private final ProductTypeService productTypeService;
+    private final ProductColorService productColorService;
 
     @GetMapping
-    public ResponseEntity<List<ProductType>> getAllProductTypes() {
-        return ResponseEntity.ok(productTypeService.findAll());
+    public ResponseEntity<List<ProductColor>> getAllProductColors() {
+        return ResponseEntity.ok(productColorService.findAll());
     }
 
     @PostMapping
     @PreAuthorize("isAuthenticated() and hasRole('ADMIN')")
-    public ResponseEntity<ProductType> createNewProductType(@RequestParam(name = "name") String name) {
-        final ProductType type;
+    public ResponseEntity<ProductColor> createNewProductColor(@RequestParam(name = "name") String name, @RequestParam(name = "hex") String hex) {
+        if(name == null || name.isBlank()) return ResponseEntity.badRequest().build();
+        if(hex == null || !ColorValidator.isValidHexColor(hex)) return ResponseEntity.badRequest().build();
+
+        final ProductColor type;
         try {
-            type = productTypeService.create(name);
+            type = productColorService.create(name, hex);
             return ResponseEntity.status(HttpStatus.CREATED).body(type);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
@@ -36,9 +40,9 @@ public class ProductTypeController {
 
     @DeleteMapping
     @PreAuthorize("isAuthenticated() and hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteProductType(@RequestBody ProductType type){
-        if(type == null) return ResponseEntity.badRequest().build();
-        productTypeService.delete(type);
+    public ResponseEntity<Void> deleteProductColor(@RequestBody ProductColor color){
+        if(color == null) return ResponseEntity.badRequest().build();
+        productColorService.delete(color);
         return ResponseEntity.noContent().build();
     }
 }

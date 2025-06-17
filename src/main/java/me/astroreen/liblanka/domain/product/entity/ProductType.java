@@ -11,11 +11,10 @@ import lombok.*;
 @Setter
 @Table(name = "type")
 public class ProductType {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true)
+    @Column(nullable = false, unique = true)
     private String name;
 }

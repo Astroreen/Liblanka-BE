@@ -1,6 +1,7 @@
 package me.astroreen.liblanka.domain.auth.config;
 
 import lombok.RequiredArgsConstructor;
+import me.astroreen.liblanka.domain.auth.UserRole;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -39,9 +40,9 @@ public class SecurityConfiguration {
                                 authorize
                                         //configure secured pages
                                         .requestMatchers(
-                                                "/auth/admin/**"
+                                                "/admin/**"
                                         )
-                                        .authenticated()
+                                        .hasRole(UserRole.ADMIN.name())
                                         .anyRequest()
                                         .permitAll()
                 )
@@ -57,7 +58,7 @@ public class SecurityConfiguration {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("*"));
+        configuration.setAllowedOrigins(List.of("http://localhost:3001", "http://localhost:3000", "https://www.liblanka.lt"));
         configuration.setAllowedMethods(List.of("*"));
         configuration.setAllowedHeaders(List.of("*"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

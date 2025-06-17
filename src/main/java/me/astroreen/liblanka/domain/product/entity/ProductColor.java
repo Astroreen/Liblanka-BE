@@ -15,9 +15,9 @@ public class ProductColor {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true)
+    @Column(nullable = false, unique = true)
     private String name;
 
-    @Column(length = 7, nullable = false, unique = true)
-    private String hexValue;
+    @Column(nullable = false, unique = true)
+    private String hex;
 }

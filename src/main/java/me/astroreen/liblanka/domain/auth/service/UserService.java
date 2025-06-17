@@ -3,9 +3,6 @@ package me.astroreen.liblanka.domain.auth.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import me.astroreen.liblanka.common.excpetion.ResourceNotFoundException;
-import me.astroreen.liblanka.domain.auth.UserRole;
 import me.astroreen.liblanka.domain.auth.dto.*;
 import me.astroreen.liblanka.domain.auth.entity.User;
 import me.astroreen.liblanka.domain.auth.exception.EmailAlreadyInUseException;
@@ -13,10 +10,11 @@ import me.astroreen.liblanka.domain.auth.exception.IncorrectPasswordException;
 import me.astroreen.liblanka.domain.auth.exception.PasswordConfirmationException;
 import me.astroreen.liblanka.domain.auth.repository.UserRepository;
 import org.jetbrains.annotations.NotNull;
-import org.springdoc.core.service.RequestBodyService;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.NoSuchElementException;
 
 
 @Service
@@ -29,12 +27,11 @@ public class UserService {
     private final AuthenticationService authenticationService;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
-    private final RequestBodyService requestBodyBuilder;
 
-    public UserDto getUserDetails() {
-        var user =
+    public UserDto getUserDetails() throws NoSuchElementException {
+        User user =
                 userRepository.findByEmail(SecurityContextHolder.getContext().getAuthentication().getName())
-                        .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
+                        .orElseThrow(() -> new NoSuchElementException(USER_NOT_FOUND));
 
         return UserDto.builder()
                 .email(user.getEmail())
@@ -45,7 +42,7 @@ public class UserService {
     }
 
     public UpdateUserProfileResponse updateUserDetails(@NotNull UpdateUserProfileRequest updateUserProfileRequest) {
-        var user = authenticationService.getAuthenticatedUser();
+        User user = authenticationService.getAuthenticatedUser();
 
         if (!user.getEmail().equals(updateUserProfileRequest.getEmail())) {
             var existingUser = userRepository.findByEmail(updateUserProfileRequest.getEmail());
@@ -61,9 +58,9 @@ public class UserService {
 
         userRepository.save(user);
 
-        var newJwtToken = jwtService.generateToken(user);
+        String newJwtToken = jwtService.generateToken(user);
 
-        var userDto = UserDto.builder()
+        UserDto userDto = UserDto.builder()
                 .name(user.getName())
                 .email(user.getEmail())
                 .role(user.getRole())

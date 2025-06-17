@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="create-product-variant-table" author="Ilja Zholudev">
+        <createTable tableName="product_variant">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="product_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="color_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="size_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantity" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+                baseTableName="product_variant" baseColumnNames="product_id"
+                referencedTableName="product" referencedColumnNames="id"
+                constraintName="fk_product_variant_product"/>
+        <addForeignKeyConstraint
+                baseTableName="product_variant" baseColumnNames="color_id"
+                referencedTableName="color" referencedColumnNames="id"
+                constraintName="fk_product_variant_color"/>
+        <addForeignKeyConstraint
+                baseTableName="product_variant" baseColumnNames="size_id"
+                referencedTableName="size" referencedColumnNames="id"
+                constraintName="fk_product_variant_size"/>
+    </changeSet>
+</databaseChangeLog>

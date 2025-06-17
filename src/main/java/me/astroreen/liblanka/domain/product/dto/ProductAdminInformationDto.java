@@ -12,7 +12,7 @@ import java.util.List;
 @Getter
 @Setter
 @Builder
-public class ProductAdminInformation {
+public class ProductAdminInformationDto {
     private List<ProductSize> sizes;
     private List<ProductColor> colors;
     private List<ProductType> types;
