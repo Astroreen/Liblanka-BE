@@ -67,6 +67,8 @@ public class ProductController {
             @RequestParam(required = false) Long typeId,
             @RequestParam(required = false) List<Long> sizeIds,
             @RequestParam(required = false) List<Long> colorIds,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
@@ -76,6 +78,14 @@ public class ProductController {
         if (typeId != null && typeId < 0) return ResponseEntity.badRequest().build();
         if (sizeIds != null && sizeIds.stream().anyMatch(id -> id < 0)) return ResponseEntity.badRequest().build();
         if (colorIds != null && colorIds.stream().anyMatch(id -> id < 0)) return ResponseEntity.badRequest().build();
+        if (minPrice != null && minPrice.compareTo(BigDecimal.ZERO) < 0) return ResponseEntity.badRequest().build();
+        if (maxPrice != null && maxPrice.compareTo(BigDecimal.ZERO) < 0) return ResponseEntity.badRequest().build();
+        if (minPrice != null && maxPrice != null && minPrice.compareTo(maxPrice) > 0) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Trim name (forgive errors)
+        name = name.trim();
 
         // Create specification
         Specification<Product> spec = ProductSpecifications.filterBy(
@@ -84,6 +94,8 @@ public class ProductController {
                         .typeId(typeId)
                         .sizeIds(sizeIds)
                         .colorIds(colorIds)
+                        .minPrice(minPrice)
+                        .maxPrice(maxPrice)
                         .build()
         );
 
@@ -128,10 +140,12 @@ public class ProductController {
             @RequestPart(value = "images", required = false) List<MultipartFile> images,
             @RequestPart(value = "colorIds", required = false) String jsonColorIds
     ) {
+        // Validate price
         if (price == null) return ResponseEntity.badRequest().build();
         BigDecimal transformedPrice = new BigDecimal(price).setScale(2, RoundingMode.FLOOR);
         if(transformedPrice.compareTo(BigDecimal.ZERO) <= 0) return ResponseEntity.badRequest().build();
 
+        // Validate typeId
         if (typeId == null || typeId.isBlank()) return ResponseEntity.badRequest().build();
         long transformedTypeId = 0;
         try {
@@ -141,6 +155,7 @@ public class ProductController {
         }
         if (transformedTypeId < 0) return ResponseEntity.badRequest().build();
 
+        // Validate attributes
         ObjectMapper mapper = new ObjectMapper();
         List<String> parsedAttributes = null;
         if (jsonProductAttributes != null && !jsonProductAttributes.isBlank()) {
@@ -151,16 +166,21 @@ public class ProductController {
             }
         }
 
+        // Validate name
         if (name == null || name.isBlank()) return ResponseEntity.badRequest().build();
+        name = name.trim(); // Trim name (forgive errors)
+
+        // Validate product variants
         if (jsonProductVariants == null || jsonProductVariants.isBlank()) return ResponseEntity.badRequest().build();
 
+        // Create product
         try {
             Product savedProduct = productService.createProduct(name, transformedTypeId, description, transformedPrice, parsedAttributes);
 
-            // Parsing JSON representation of product variants
+            // Parse JSON representation of product variants
             savedProduct = productVariantService.parseJsonProductVariants(savedProduct, jsonProductVariants);
 
-            // Saving images
+            // Save images
             if (images != null && !images.isEmpty()) {
                 savedProduct = jsonColorIds == null || jsonColorIds.isBlank() ?
                         productImageService.saveAllImages(savedProduct, images) :

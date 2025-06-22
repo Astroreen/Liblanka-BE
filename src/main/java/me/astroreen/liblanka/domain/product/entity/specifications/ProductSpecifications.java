@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.experimental.UtilityClass;
 import me.astroreen.liblanka.domain.product.entity.Product;
+import me.astroreen.liblanka.domain.product.entity.ProductVariant;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.data.jpa.domain.Specification;
@@ -16,10 +17,11 @@ public class ProductSpecifications {
 
     private static final String NAME = "name";
     private static final String TYPE = "type";
-    private static final String VARIANTS = "variants";
     private static final String COLOR = "color";
     private static final String SIZE = "size";
     private static final String PRICE = "price";
+    private static final String PRODUCT = "product";
+    private static final String ID = "id";
 
     @Data
     @Builder
@@ -51,7 +53,7 @@ public class ProductSpecifications {
     private static @NotNull Specification<Product> hasTypeId(Long typeId) {
         return (root, query, cb) ->
                 typeId == null ? cb.conjunction() :
-                        cb.equal(root.get(TYPE).get("id"), typeId);
+                        cb.equal(root.get(TYPE).get(ID), typeId);
     }
 
     @Contract(pure = true)
@@ -61,8 +63,18 @@ public class ProductSpecifications {
                 return cb.conjunction();
             }
 
-            var variantsJoin = root.join(VARIANTS);
-            return variantsJoin.get(SIZE).get("id").in(sizeIds);
+            if(query == null) {
+                return cb.conjunction();
+            }
+
+            var subquery = query.subquery(Long.class);
+            var subqueryRoot = subquery.from(ProductVariant.class);
+            subquery.select(subqueryRoot.get(PRODUCT).get(ID))
+                .where(subqueryRoot.get(SIZE).get(ID).in(sizeIds))
+                .groupBy(subqueryRoot.get(PRODUCT).get(ID))
+                .having(cb.equal(cb.countDistinct(subqueryRoot.get(SIZE).get(ID)), (long) sizeIds.size()));
+
+            return root.get(ID).in(subquery);
         };
     }
 
@@ -73,8 +85,18 @@ public class ProductSpecifications {
                 return cb.conjunction();
             }
 
-            var variantsJoin = root.join(VARIANTS);
-            return variantsJoin.get(COLOR).get("id").in(colorIds);
+            if(query == null) {
+                return cb.conjunction();
+            }
+
+            var subquery = query.subquery(Long.class);
+            var subqueryRoot = subquery.from(ProductVariant.class);
+            subquery.select(subqueryRoot.get(PRODUCT).get(ID))
+                    .where(subqueryRoot.get(COLOR).get(ID).in(colorIds))
+                    .groupBy(subqueryRoot.get(PRODUCT).get(ID))
+                    .having(cb.equal(cb.countDistinct(subqueryRoot.get(COLOR).get(ID)), (long) colorIds.size()));
+
+            return root.get(ID).in(subquery);
         };
     }
 
