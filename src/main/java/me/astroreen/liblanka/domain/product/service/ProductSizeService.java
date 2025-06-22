@@ -1,8 +1,8 @@
 package me.astroreen.liblanka.domain.product.service;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import me.astroreen.liblanka.domain.product.entity.ProductSize;
-import me.astroreen.liblanka.domain.product.entity.ProductType;
 import me.astroreen.liblanka.domain.product.repository.ProductSizeRepository;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -15,6 +15,7 @@ import java.util.List;
 public class ProductSizeService {
 
     private final ProductSizeRepository productSizeRepository;
+    private final ProductService productService;
 
     public List<ProductSize> findAll() {
         return productSizeRepository.findAll();
@@ -24,7 +25,13 @@ public class ProductSizeService {
         return productSizeRepository.save(ProductSize.builder().name(name).build());
     }
 
-    public void delete(@NotNull ProductSize type) throws IllegalArgumentException, OptimisticLockingFailureException {
-        productSizeRepository.delete(type);
+    @Transactional
+    public void delete(@NotNull ProductSize sizeToDelete, @NotNull ProductSize replacementSize) 
+            throws IllegalArgumentException, OptimisticLockingFailureException {
+        // Update all product variants that use the size to be deleted
+        productService.updateProductSizes(sizeToDelete.getId(), replacementSize.getId());
+        
+        // Delete the original size
+        productSizeRepository.delete(sizeToDelete);
     }
 }

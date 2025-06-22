@@ -1,10 +1,9 @@
 package me.astroreen.liblanka.domain.product.controller;
 
 import lombok.RequiredArgsConstructor;
+import me.astroreen.liblanka.domain.product.dto.ReplacementRequest;
 import me.astroreen.liblanka.domain.product.entity.ProductSize;
-import me.astroreen.liblanka.domain.product.entity.ProductType;
 import me.astroreen.liblanka.domain.product.service.ProductSizeService;
-import me.astroreen.liblanka.domain.product.service.ProductTypeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -38,9 +37,16 @@ public class ProductSizeController {
 
     @DeleteMapping
     @PreAuthorize("isAuthenticated() and hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteProductSize(@RequestBody ProductSize size){
-        if(size == null) return ResponseEntity.badRequest().build();
-        productSizeService.delete(size);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> deleteProductSizeWithReplacement(@RequestBody ReplacementRequest<ProductSize> request){
+        if(request == null || request.getItemToDelete() == null || request.getReplacementItem() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        
+        try {
+            productSizeService.delete(request.getItemToDelete(), request.getReplacementItem());
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

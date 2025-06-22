@@ -1,6 +1,7 @@
 package me.astroreen.liblanka.domain.product.controller;
 
 import lombok.RequiredArgsConstructor;
+import me.astroreen.liblanka.domain.product.dto.ReplacementRequest;
 import me.astroreen.liblanka.domain.product.entity.ProductType;
 import me.astroreen.liblanka.domain.product.service.ProductTypeService;
 import org.springframework.http.HttpStatus;
@@ -36,9 +37,16 @@ public class ProductTypeController {
 
     @DeleteMapping
     @PreAuthorize("isAuthenticated() and hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteProductType(@RequestBody ProductType type){
-        if(type == null) return ResponseEntity.badRequest().build();
-        productTypeService.delete(type);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> deleteProductType(@RequestBody ReplacementRequest<ProductType> request){
+        if(request == null || request.getItemToDelete() == null || request.getReplacementItem() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        
+        try {
+            productTypeService.delete(request.getItemToDelete(), request.getReplacementItem());
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

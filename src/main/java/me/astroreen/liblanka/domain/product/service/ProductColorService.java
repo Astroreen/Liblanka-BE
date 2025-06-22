@@ -1,9 +1,9 @@
 package me.astroreen.liblanka.domain.product.service;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import me.astroreen.liblanka.domain.product.entity.ProductColor;
 import me.astroreen.liblanka.domain.product.repository.ProductColorRepository;
-import me.astroreen.liblanka.domain.product.util.ColorValidator;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -15,6 +15,7 @@ import java.util.List;
 public class ProductColorService {
 
     private final ProductColorRepository productColorRepository;
+    private final ProductService productService;
 
     public @NotNull List<ProductColor> findAll() {
         return productColorRepository.findAll();
@@ -24,7 +25,13 @@ public class ProductColorService {
         return productColorRepository.save(ProductColor.builder().name(name).hex(hex).build());
     }
 
-    public void delete(@NotNull ProductColor type) throws IllegalArgumentException, OptimisticLockingFailureException {
-        productColorRepository.delete(type);
+    @Transactional
+    public void delete(@NotNull ProductColor colorToDelete, @NotNull ProductColor replacementColor) 
+            throws IllegalArgumentException, OptimisticLockingFailureException {
+        // Update all product variants that use the color to be deleted
+        productService.updateProductColors(colorToDelete.getId(), replacementColor.getId());
+        
+        // Delete the original color
+        productColorRepository.delete(colorToDelete);
     }
 }

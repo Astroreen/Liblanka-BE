@@ -1,5 +1,6 @@
 package me.astroreen.liblanka.domain.product.service;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import me.astroreen.liblanka.domain.product.entity.ProductType;
 import me.astroreen.liblanka.domain.product.repository.ProductTypeRepository;
@@ -14,6 +15,7 @@ import java.util.List;
 public class ProductTypeService {
 
     private final ProductTypeRepository productTypeRepository;
+    private final ProductService productService;
 
     public List<ProductType> findAll() {
         return productTypeRepository.findAll();
@@ -23,7 +25,13 @@ public class ProductTypeService {
         return productTypeRepository.save(ProductType.builder().name(name).build());
     }
 
-    public void delete(@NotNull ProductType type) throws IllegalArgumentException, OptimisticLockingFailureException {
-        productTypeRepository.delete(type);
+    @Transactional
+    public void delete(@NotNull ProductType typeToDelete, @NotNull ProductType replacementType) 
+            throws IllegalArgumentException, OptimisticLockingFailureException {
+        // Update all products that use the type to be deleted
+        productService.updateProductTypes(typeToDelete.getId(), replacementType.getId());
+        
+        // Delete the original type
+        productTypeRepository.delete(typeToDelete);
     }
 }

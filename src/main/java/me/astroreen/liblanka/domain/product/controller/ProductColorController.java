@@ -1,6 +1,7 @@
 package me.astroreen.liblanka.domain.product.controller;
 
 import lombok.RequiredArgsConstructor;
+import me.astroreen.liblanka.domain.product.dto.ReplacementRequest;
 import me.astroreen.liblanka.domain.product.entity.ProductColor;
 import me.astroreen.liblanka.domain.product.service.ProductColorService;
 import me.astroreen.liblanka.domain.product.util.ColorValidator;
@@ -40,9 +41,16 @@ public class ProductColorController {
 
     @DeleteMapping
     @PreAuthorize("isAuthenticated() and hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteProductColor(@RequestBody ProductColor color){
-        if(color == null) return ResponseEntity.badRequest().build();
-        productColorService.delete(color);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> deleteProductColorWithReplacement(@RequestBody ReplacementRequest<ProductColor> request){
+        if(request == null || request.getItemToDelete() == null || request.getReplacementItem() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        
+        try {
+            productColorService.delete(request.getItemToDelete(), request.getReplacementItem());
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }
