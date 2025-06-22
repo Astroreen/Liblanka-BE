@@ -85,7 +85,7 @@ public class ProductController {
         }
 
         // Trim name (forgive errors)
-        name = name.trim();
+        if(name != null) name = name.trim();
 
         // Create specification
         Specification<Product> spec = ProductSpecifications.filterBy(
