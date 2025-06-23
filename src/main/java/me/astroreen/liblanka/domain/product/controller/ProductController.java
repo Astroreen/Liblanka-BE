@@ -30,6 +30,7 @@ import java.math.RoundingMode;
 import java.util.Base64;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Arrays;
 
 @RestController
 @RequestMapping("/storage/products")
@@ -173,6 +174,15 @@ public class ProductController {
         // Validate product variants
         if (jsonProductVariants == null || jsonProductVariants.isBlank()) return ResponseEntity.badRequest().build();
 
+        // Validate images are of supported types
+        if (images != null && !images.isEmpty()) {
+            for (MultipartFile image : images) {
+                if (!isSupportedImageType(image)) {
+                    return ResponseEntity.badRequest().body(null);
+                }
+            }
+        }
+
         // Create product
         try {
             Product savedProduct = productService.createProduct(name, transformedTypeId, description, transformedPrice, parsedAttributes);
@@ -193,6 +203,35 @@ public class ProductController {
         } catch (IllegalArgumentException | NoSuchElementException e) {
             return ResponseEntity.badRequest().build();
         }
+    }
+
+    // Supported image MIME types and extensions for webp conversion
+    private static final String[] SUPPORTED_IMAGE_TYPES = {
+            "image/jpeg",
+            "image/png",
+            "image/gif",
+            "image/bmp",
+            "image/tiff"
+    };
+    private static final String[] SUPPORTED_EXTENSIONS = {
+            ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif"
+    };
+
+    private boolean isSupportedImageType(MultipartFile file) {
+        String contentType = file.getContentType();
+        if (contentType != null && Arrays.asList(SUPPORTED_IMAGE_TYPES).contains(contentType)) {
+            return true;
+        }
+        String name = file.getOriginalFilename();
+        if (name != null) {
+            String lower = name.toLowerCase();
+            for (String ext : SUPPORTED_EXTENSIONS) {
+                if (lower.endsWith(ext)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @PreAuthorize("isAuthenticated() and hasRole('ADMIN')")

@@ -16,6 +16,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.*;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.MemoryCacheImageOutputStream;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 
 @Service
 @RequiredArgsConstructor
@@ -43,9 +50,12 @@ public class ProductImageService {
                 continue;
             }
 
+            // Convert to webp
+            byte[] webpData = convertToWebp(imageData);
+
             ProductImage productImage = ProductImage.builder()
                     .product(originalProduct)
-                    .imageData(imageData)
+                    .imageData(webpData)
                     .color(null)
                     .build();
 
@@ -91,9 +101,11 @@ public class ProductImageService {
         List<ProductImage> productImages = new ArrayList<>();
         for (Map.Entry<MultipartFile, ProductColor> entry : data.entrySet()) {
             byte[] imageData = entry.getKey().getBytes();
+            // Convert to webp
+            byte[] webpData = convertToWebp(imageData);
             ProductImage productImage = ProductImage.builder()
                     .product(originalProduct)
-                    .imageData(imageData)
+                    .imageData(webpData)
                     .color(entry.getValue())
                     .build();
             productImages.add(productImage);
@@ -109,5 +121,26 @@ public class ProductImageService {
         ProductImage productImage = productImageRepository.findById(imageId)
                 .orElseThrow(() -> new IllegalArgumentException("Image with id " + imageId + " was not found"));
         return productImage.getImageData();
+    }
+
+    // Helper to convert image bytes to webp (80% quality)
+    private byte[] convertToWebp(byte[] imageBytes) throws IOException {
+        ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
+        BufferedImage inputImage = ImageIO.read(bais);
+        if (inputImage == null) {
+            throw new IOException("Unsupported image format for conversion to webp");
+        }
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageWriter writer = ImageIO.getImageWritersByMIMEType("image/webp").next();
+        ImageWriteParam param = writer.getDefaultWriteParam();
+        if (param.canWriteCompressed()) {
+            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            param.setCompressionType(param.getCompressionTypes()[0]);
+            param.setCompressionQuality(0.8f); // 80% quality
+        }
+        writer.setOutput(new MemoryCacheImageOutputStream(baos));
+        writer.write(null, new javax.imageio.IIOImage(inputImage, null, null), param);
+        writer.dispose();
+        return baos.toByteArray();
     }
 }

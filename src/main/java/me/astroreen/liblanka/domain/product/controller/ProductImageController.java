@@ -25,7 +25,7 @@ public class ProductImageController {
         try {
             byte[] imageData = productImageService.getImageData(imageId);
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.IMAGE_PNG); // Adjust based on your image type
+            headers.setContentType(MediaType.parseMediaType("image/webp"));
             headers.setContentLength(imageData.length);
             return new ResponseEntity<>(imageData, headers, HttpStatus.OK);
         } catch (IllegalArgumentException e) {
