@@ -2,6 +2,8 @@ package me.astroreen.liblanka.domain.product.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.luciad.imageio.webp.WebPWriteParam;
+
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import me.astroreen.liblanka.domain.product.entity.Product;
@@ -16,9 +18,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collector;
+
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -117,6 +123,29 @@ public class ProductImageService {
     }
 
     @Transactional
+    public Product saveImageWithColor(@NotNull Product originalProduct, MultipartFile image, Long colorId)
+        throws IOException {
+        ProductColor color = productColorService.findAll().stream()
+        .filter(productColor -> Objects.equals(productColor.getId(), colorId))
+        .findFirst()
+        .orElseThrow(() -> new NoSuchElementException("Color ID " + colorId + " could not be found in the database"));
+        
+        byte[] webpData = convertToWebp(image.getBytes());
+
+        ProductImage coloredImage = ProductImage.builder()
+            .product(originalProduct)
+            .imageData(webpData)
+            .color(color)
+            .build();
+        
+        productImageRepository.save(coloredImage);
+        List<ProductImage> images = originalProduct.getImages();
+        images.add(coloredImage);
+        originalProduct.setImages(images);
+        return originalProduct;
+    }
+
+    @Transactional
     public byte[] getImageData(Long imageId) throws IllegalArgumentException {
         ProductImage productImage = productImageRepository.findById(imageId)
                 .orElseThrow(() -> new IllegalArgumentException("Image with id " + imageId + " was not found"));
@@ -126,21 +155,29 @@ public class ProductImageService {
     // Helper to convert image bytes to webp (80% quality)
     private byte[] convertToWebp(byte[] imageBytes) throws IOException {
         ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageOutputStream ios = ImageIO.createImageOutputStream(baos);
         BufferedImage inputImage = ImageIO.read(bais);
         if (inputImage == null) {
             throw new IOException("Unsupported image format for conversion to webp");
         }
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageWriter writer = ImageIO.getImageWritersByMIMEType("image/webp").next();
-        ImageWriteParam param = writer.getDefaultWriteParam();
+        writer.setOutput(ios);
+
+        WebPWriteParam param = new WebPWriteParam(writer.getLocale());
         if (param.canWriteCompressed()) {
             param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-            param.setCompressionType(param.getCompressionTypes()[0]);
+            param.setCompressionType(param.getCompressionTypes()[WebPWriteParam.LOSSY_COMPRESSION]);
             param.setCompressionQuality(0.8f); // 80% quality
         }
-        writer.setOutput(new MemoryCacheImageOutputStream(baos));
-        writer.write(null, new javax.imageio.IIOImage(inputImage, null, null), param);
+        
+        IIOImage iioImage = new IIOImage(inputImage, null, null);
+        writer.write(null, iioImage, param);
+        
         writer.dispose();
+        ios.close();
+        baos.close();
+
         return baos.toByteArray();
     }
 }

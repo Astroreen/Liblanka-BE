@@ -7,6 +7,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import me.astroreen.liblanka.domain.product.dto.ProductCardDto;
 import me.astroreen.liblanka.domain.product.dto.ProductConstructionInfoDto;
+import me.astroreen.liblanka.domain.product.dto.ProductDto;
 import me.astroreen.liblanka.domain.product.entity.Product;
 import me.astroreen.liblanka.domain.product.entity.specifications.ProductSpecifications;
 import me.astroreen.liblanka.domain.product.service.ProductImageService;
@@ -28,8 +29,11 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.Arrays;
 
 @RestController
@@ -40,6 +44,7 @@ public class ProductController {
     private final ProductService productService;
     private final ProductVariantService productVariantService;
     private final ProductImageService productImageService;
+    private final Logger logger = Logger.getLogger(getClass().getName());
 
     @GetMapping("/information")
     public ResponseEntity<ProductConstructionInfoDto> getProductConstructionInfo() {
@@ -47,18 +52,16 @@ public class ProductController {
         return ResponseEntity.ok(answer);
     }
 
+    @Transactional
     @GetMapping("/{id}")
-    public ResponseEntity<Product> getProduct(@PathVariable Long id) {
+    public ResponseEntity<ProductDto> getProduct(@PathVariable Long id) {
         if(id == null || id < 0) return ResponseEntity.badRequest().build();
-        Product product = null;
-
         try {
-            product = productService.findById(id);
+            ProductDto dto = productService.getProductDetails(id);
+            return ResponseEntity.ok(dto);
         } catch (NoSuchElementException e) {
             return ResponseEntity.notFound().build();
         }
-
-        return ResponseEntity.ok(product);
     }
 
     @Transactional
@@ -110,7 +113,7 @@ public class ProductController {
         Page<ProductCardDto> productDtos = products.map(product -> {
             String imageData = null;
             if (!CollectionUtils.isEmpty(product.getImages())) {
-                byte[] firstImageData = product.getImages().getFirst().getImageData();
+                byte[] firstImageData = product.getImages().getLast().getImageData();
                 if (firstImageData != null && firstImageData.length > 0) {
                     imageData = Base64.getEncoder().encodeToString(firstImageData);
                 }
@@ -178,7 +181,7 @@ public class ProductController {
         if (images != null && !images.isEmpty()) {
             for (MultipartFile image : images) {
                 if (!isSupportedImageType(image)) {
-                    return ResponseEntity.badRequest().body(null);
+                    return ResponseEntity.badRequest().build();
                 }
             }
         }
@@ -244,5 +247,42 @@ public class ProductController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("isAuthenticated() and hasRole('ADMIN')")
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ProductDto> updateProduct(
+            @PathVariable Long id,
+            @RequestPart("name") String name,
+            @RequestPart("typeId") String typeId,
+            @RequestPart(value = "description", required = false) String description,
+            @RequestPart("price") String price,
+            @RequestPart(value = "attributes", required = false) String jsonProductAttributes,
+            @RequestPart(value = "variants") String jsonProductVariants,
+            @RequestPart(value = "existingImageBindings", required = false) String jsonExistingImageBindings,
+            @RequestPart(value = "newImages", required = false) MultipartFile[] newImages,
+            @RequestPart(value = "newImageColorIds", required = false) String jsonNewImageColorIds
+    ) {
+        List<MultipartFile> newImagesList = newImages != null ? Arrays.asList(newImages) : Collections.emptyList();
+
+        try {
+            ProductDto updated = productService.updateProductMultipart(
+                id, 
+                name, 
+                typeId, 
+                description, 
+                price, 
+                jsonProductAttributes, 
+                jsonProductVariants, 
+                jsonExistingImageBindings, 
+                newImagesList, 
+                jsonNewImageColorIds
+            );
+            
+            return ResponseEntity.ok(updated);
+        } catch (Exception e) {
+            logger.log(Level.WARNING, e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

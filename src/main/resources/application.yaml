@@ -21,7 +21,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -33,7 +33,7 @@ logging:
   level:
     org:
       hibernate:
-        SQL: DEBUG
+        SQL: INFO
         orm:
           jdbc:
-            bind: TRACE
+            bind: INFO

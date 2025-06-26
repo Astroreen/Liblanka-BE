@@ -3,6 +3,7 @@ package me.astroreen.liblanka.domain.product.entity;
 import jakarta.annotation.Nullable;
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 @Entity
 @Builder
@@ -19,6 +20,7 @@ public class ProductImage {
 
     @ManyToOne
     @JoinColumn(name = "product_id", nullable = false)
+    @JsonBackReference
     private Product product;
 
     @Lob
