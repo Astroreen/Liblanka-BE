@@ -15,7 +15,6 @@ import java.util.Map;
 @Setter
 @Builder
 public class ProductDto {
-
     private Long id;
     private String name;
     private Long typeId;
@@ -23,11 +22,11 @@ public class ProductDto {
     private String description;
     private BigDecimal price;
     private List<String> attributes;
-    private List<String> imageData; // base64 images
-    private Map<Long, List<String>> imagesByColor; // colorId -> images
     private List<ProductVariantDto> variants;
     private Map<Long, List<ProductVariantDto>> variantsByColor; // colorId -> variants
     private List<ProductColor> colors;
     private List<ProductSize> sizes;
     private ProductType type;
+    private List<ProductImageDto> images;
+    
 }

@@ -5,14 +5,13 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import me.astroreen.liblanka.domain.product.dto.ImageMetadataDto;
 import me.astroreen.liblanka.domain.product.dto.ProductCardDto;
 import me.astroreen.liblanka.domain.product.dto.ProductConstructionInfoDto;
 import me.astroreen.liblanka.domain.product.dto.ProductDto;
 import me.astroreen.liblanka.domain.product.entity.Product;
 import me.astroreen.liblanka.domain.product.entity.specifications.ProductSpecifications;
-import me.astroreen.liblanka.domain.product.service.ProductImageService;
 import me.astroreen.liblanka.domain.product.service.ProductService;
-import me.astroreen.liblanka.domain.product.service.ProductVariantService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,25 +24,23 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.util.CollectionUtils;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.Arrays;
 
 @RestController
-@RequestMapping("/storage/products")
+@RequestMappingds("/storage/products")
 @RequiredArgsConstructor
 public class ProductController {
 
     private final ProductService productService;
-    private final ProductVariantService productVariantService;
-    private final ProductImageService productImageService;
     private final Logger logger = Logger.getLogger(getClass().getName());
 
     @GetMapping("/information")
@@ -141,8 +138,8 @@ public class ProductController {
             @RequestPart("price") String price,
             @RequestPart(value = "attributes", required = false) String jsonProductAttributes,
             @RequestPart(value = "variants") String jsonProductVariants,
-            @RequestPart(value = "images", required = false) List<MultipartFile> images,
-            @RequestPart(value = "colorIds", required = false) String jsonColorIds
+            @RequestPart(value = "images", required = false) Map<String, MultipartFile> images,
+            @RequestPart(value = "metadata", required = false) List<ImageMetadataDto> metadata
     ) {
         // Validate price
         if (price == null) return ResponseEntity.badRequest().build();
@@ -166,7 +163,8 @@ public class ProductController {
             try {
                 parsedAttributes = mapper.readValue(jsonProductAttributes, new TypeReference<List<String>>() {});
             } catch (JsonProcessingException e) {
-                throw new IllegalArgumentException("Invalid JSON format for attributes: " + jsonProductAttributes);
+                logger.log(Level.WARNING, "Invalid JSON format for attributes: " + jsonProductAttributes, e);
+                return ResponseEntity.badRequest().build();
             }
         }
 
@@ -177,9 +175,9 @@ public class ProductController {
         // Validate product variants
         if (jsonProductVariants == null || jsonProductVariants.isBlank()) return ResponseEntity.badRequest().build();
 
-        // Validate images are of supported types
+        // Check if images are of supported types
         if (images != null && !images.isEmpty()) {
-            for (MultipartFile image : images) {
+            for (MultipartFile image : images.values()) {
                 if (!isSupportedImageType(image)) {
                     return ResponseEntity.badRequest().build();
                 }
@@ -188,21 +186,8 @@ public class ProductController {
 
         // Create product
         try {
-            Product savedProduct = productService.createProduct(name, transformedTypeId, description, transformedPrice, parsedAttributes);
-
-            // Parse JSON representation of product variants
-            savedProduct = productVariantService.parseJsonProductVariants(savedProduct, jsonProductVariants);
-
-            // Save images
-            if (images != null && !images.isEmpty()) {
-                savedProduct = jsonColorIds == null || jsonColorIds.isBlank() ?
-                        productImageService.saveAllImages(savedProduct, images) :
-                        productImageService.saveImagesWithColorData(savedProduct, images, jsonColorIds);
-            }
-
+            Product savedProduct = productService.createProduct(name, transformedTypeId, description, transformedPrice, parsedAttributes, jsonProductVariants,images, metadata);
             return ResponseEntity.status(HttpStatus.CREATED).body(savedProduct);
-        } catch (IOException e) {
-            return ResponseEntity.internalServerError().build();
         } catch (IllegalArgumentException | NoSuchElementException e) {
             return ResponseEntity.badRequest().build();
         }
@@ -259,11 +244,14 @@ public class ProductController {
             @RequestPart("price") String price,
             @RequestPart(value = "attributes", required = false) String jsonProductAttributes,
             @RequestPart(value = "variants") String jsonProductVariants,
-            @RequestPart(value = "existingImageBindings", required = false) String jsonExistingImageBindings,
-            @RequestPart(value = "newImages", required = false) MultipartFile[] newImages,
-            @RequestPart(value = "newImageColorIds", required = false) String jsonNewImageColorIds
+
+            //image update
+            @RequestPart(value = "newImages", required = false) Map<String, MultipartFile> newImages,
+            @RequestPart(value = "newImageMetadata", required = false) String jsonNewImagesMetadata,
+            @RequestPart(value = "imageColorChanges", required = false) String jsonImageColorChanges,
+            @RequestPart(value = "deleteImages", required = false) Long[] deleteImageIds
     ) {
-        List<MultipartFile> newImagesList = newImages != null ? Arrays.asList(newImages) : Collections.emptyList();
+        List<Long> deleteImagesIdsList = deleteImageIds != null ? Arrays.asList(deleteImageIds) : Collections.emptyList();
 
         try {
             ProductDto updated = productService.updateProductMultipart(
@@ -273,10 +261,13 @@ public class ProductController {
                 description, 
                 price, 
                 jsonProductAttributes, 
-                jsonProductVariants, 
-                jsonExistingImageBindings, 
-                newImagesList, 
-                jsonNewImageColorIds
+                jsonProductVariants,
+
+                // image update
+                newImages,
+                jsonNewImagesMetadata,
+                jsonImageColorChanges,
+                deleteImagesIdsList
             );
             
             return ResponseEntity.ok(updated);
