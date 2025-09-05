@@ -36,7 +36,7 @@ import java.util.logging.Logger;
 import java.util.Arrays;
 
 @RestController
-@RequestMappingds("/storage/products")
+@RequestMapping("/storage/products")
 @RequiredArgsConstructor
 public class ProductController {
 
