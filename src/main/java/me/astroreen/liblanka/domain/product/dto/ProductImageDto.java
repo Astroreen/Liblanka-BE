@@ -11,5 +11,5 @@ public class ProductImageDto {
     private Long id;
     private Long productId;
     private Long colorId;
-    private String imageId;
+    private Long imageId;
 }

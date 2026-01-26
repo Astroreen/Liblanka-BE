@@ -1,5 +1,28 @@
 package me.astroreen.liblanka.domain.product.service;
 
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotBlank;
@@ -20,30 +43,6 @@ import me.astroreen.liblanka.domain.product.repository.ProductRepository;
 import me.astroreen.liblanka.domain.product.repository.ProductSizeRepository;
 import me.astroreen.liblanka.domain.product.repository.ProductTypeRepository;
 import me.astroreen.liblanka.domain.product.repository.ProductVariantRepository;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.type.TypeReference;
-
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -178,13 +177,13 @@ public class ProductService {
 
         //Create list of image dtos
         List<ProductImageDto> images = product.getImages() != null ? product.getImages().stream()
-            .map((me.astroreen.liblanka.domain.product.entity.ProductImage img) -> ProductImageDto.builder()
+            .map((ProductImage img) -> ProductImageDto.builder()
                 .id(img.getId())
                 .productId(id)
                 .colorId(img.getColor() != null ? img.getColor().getId() : null)
-                .imageId(img.getId() != null ? img.getId().toString() : null)
+                .imageId(img.getId())
                 .build())
-            .collect(Collectors.toList()) : Collections.emptyList();
+            .toList() : Collections.emptyList();
 
         // Create list of variant dtos
         List<ProductVariantDto> variants = product.getVariants() != null ? product.getVariants().stream()
@@ -193,7 +192,7 @@ public class ProductService {
                 .sizeId(v.getSize().getId())
                 .quantity(v.getQuantity())
                 .build())
-            .collect(Collectors.toList()) : Collections.emptyList();
+            .toList() : Collections.emptyList();
         // Create map of variants by color
         Map<Long, List<ProductVariantDto>> variantsByColor = new HashMap<>();
         if (product.getVariants() != null) {
@@ -213,13 +212,13 @@ public class ProductService {
             .map(v -> v.getColor())
             .distinct()
             .map(c -> ProductColor.builder().id(c.getId()).name(c.getName()).hex(c.getHex()).build())
-            .collect(Collectors.toList()) : Collections.emptyList();
+            .toList() : Collections.emptyList();
         // Create list of size dtos
         List<ProductSize> sizes = product.getVariants() != null ? product.getVariants().stream()
             .map(v -> v.getSize())
             .distinct()
             .map(s -> ProductSize.builder().id(s.getId()).name(s.getName()).build())
-            .collect(Collectors.toList()) : Collections.emptyList();
+            .toList() : Collections.emptyList();
         // Create product type dto
         ProductType type = product.getType() != null ? ProductType.builder().id(product.getType().getId()).name(product.getType().getName()).build() : null;
 

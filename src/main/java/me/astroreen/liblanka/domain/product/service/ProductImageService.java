@@ -1,8 +1,31 @@
 package me.astroreen.liblanka.domain.product.service;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.luciad.imageio.webp.WebPWriteParam;
+
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -10,23 +33,6 @@ import me.astroreen.liblanka.domain.product.entity.Product;
 import me.astroreen.liblanka.domain.product.entity.ProductColor;
 import me.astroreen.liblanka.domain.product.entity.ProductImage;
 import me.astroreen.liblanka.domain.product.repository.ProductImageRepository;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.util.*;
-
-import javax.imageio.IIOImage;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageWriteParam;
-import javax.imageio.ImageWriter;
-import javax.imageio.stream.ImageOutputStream;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 
 @Service
 @RequiredArgsConstructor
@@ -43,14 +49,9 @@ public class ProductImageService {
 
         List<ProductImage> productImages = new ArrayList<>();
         for (MultipartFile image : images) {
-            if (image.isEmpty()) {
-                log.warn("Skipping empty image file: {}", image.getOriginalFilename());
-                continue;
-            }
-
             byte[] imageData = image.getBytes();
-            if (imageData.length == 0) {
-                log.warn("Image file {} has no data", image.getOriginalFilename());
+            if (image.isEmpty() || imageData.length == 0) {
+                log.warn("Skipping empty image file: {}", image.getOriginalFilename());
                 continue;
             }
 
@@ -78,11 +79,13 @@ public class ProductImageService {
     }
 
     @Transactional
-    public Product saveImagesWithColorData(@NotNull Product originalProduct, @NotNull List<MultipartFile> images, String jsonColorIds)
+    public Product saveImagesWithColorData(@NotNull Product originalProduct, @NotNull List<MultipartFile> images,
+            String jsonColorIds)
             throws IllegalArgumentException, NoSuchElementException, IOException {
         log.debug("Saving {} images with color IDs for product ID {}", images.size(), originalProduct.getId());
         ObjectMapper objectMapper = new ObjectMapper();
-        List<Long> colorIds = objectMapper.readValue(jsonColorIds, new TypeReference<List<Long>>() {});
+        List<Long> colorIds = objectMapper.readValue(jsonColorIds, new TypeReference<List<Long>>() {
+        });
 
         if (images.size() != colorIds.size()) {
             throw new IllegalArgumentException("The number of images must match the number of color IDs");
@@ -97,7 +100,8 @@ public class ProductImageService {
                 imageColor = allColors.stream()
                         .filter(productColor -> Objects.equals(productColor.getId(), colorId))
                         .findFirst()
-                        .orElseThrow(() -> new NoSuchElementException("Color ID " + colorId + " could not be found in the database"));
+                        .orElseThrow(() -> new NoSuchElementException(
+                                "Color ID " + colorId + " could not be found in the database"));
             }
             data.put(images.get(i), imageColor);
         }
@@ -122,20 +126,21 @@ public class ProductImageService {
 
     @Transactional
     public Product saveImageWithColor(@NotNull Product originalProduct, MultipartFile image, Long colorId)
-        throws IOException {
+            throws IOException {
         ProductColor color = productColorService.findAll().stream()
-        .filter(productColor -> Objects.equals(productColor.getId(), colorId))
-        .findFirst()
-        .orElseThrow(() -> new NoSuchElementException("Color ID " + colorId + " could not be found in the database"));
-        
+                .filter(productColor -> Objects.equals(productColor.getId(), colorId))
+                .findFirst()
+                .orElseThrow(() -> new NoSuchElementException(
+                        "Color ID " + colorId + " could not be found in the database"));
+
         byte[] webpData = convertToWebp(image.getBytes());
 
         ProductImage coloredImage = ProductImage.builder()
-            .product(originalProduct)
-            .imageData(webpData)
-            .color(color)
-            .build();
-        
+                .product(originalProduct)
+                .imageData(webpData)
+                .color(color)
+                .build();
+
         productImageRepository.save(coloredImage);
         List<ProductImage> images = originalProduct.getImages();
         images.add(coloredImage);
@@ -153,29 +158,32 @@ public class ProductImageService {
     // Helper to convert image bytes to webp (80% quality)
     private byte[] convertToWebp(byte[] imageBytes) throws IOException {
         ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageOutputStream ios = ImageIO.createImageOutputStream(baos);
-        BufferedImage inputImage = ImageIO.read(bais);
-        if (inputImage == null) {
-            throw new IOException("Unsupported image format for conversion to webp");
-        }
-        ImageWriter writer = ImageIO.getImageWritersByMIMEType("image/webp").next();
-        writer.setOutput(ios);
+        try (
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+            BufferedImage inputImage = ImageIO.read(bais);
+            if (inputImage == null) {
+                throw new IOException("Unsupported image format for conversion to webp");
+            }
+            ImageWriter writer = ImageIO.getImageWritersByMIMEType("image/webp").next();
+            writer.setOutput(ios);
 
-        WebPWriteParam param = new WebPWriteParam(writer.getLocale());
-        if (param.canWriteCompressed()) {
-            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-            param.setCompressionType(param.getCompressionTypes()[WebPWriteParam.LOSSY_COMPRESSION]);
-            param.setCompressionQuality(0.8f); // 80% quality
-        }
-        
-        IIOImage iioImage = new IIOImage(inputImage, null, null);
-        writer.write(null, iioImage, param);
-        
-        writer.dispose();
-        ios.close();
-        baos.close();
+            WebPWriteParam param = new WebPWriteParam(writer.getLocale());
+            if (param.canWriteCompressed()) {
+                param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                param.setCompressionType(param.getCompressionTypes()[WebPWriteParam.LOSSY_COMPRESSION]);
+                param.setCompressionQuality(0.8f); // 80% quality
+            }
 
-        return baos.toByteArray();
+            IIOImage iioImage = new IIOImage(inputImage, null, null);
+            writer.write(null, iioImage, param);
+
+            writer.dispose();
+            return baos.toByteArray();
+        } catch (Exception e) {
+            log.error("Error converting image to webp: {}", e.getMessage());
+        }
+
+        throw new IOException("Failed to convert image to webp format");
     }
 }
