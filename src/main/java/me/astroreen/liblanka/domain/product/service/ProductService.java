@@ -293,8 +293,9 @@ public class ProductService {
         // Update variants
         if (jsonProductVariants != null) {
             product.getVariants().clear();
-            List<ProductVariantDto> variants = mapper.readValue(jsonProductVariants, new TypeReference<List<ProductVariantDto>>(){});
-            for (ProductVariantDto v : variants) {
+            productRepository.saveAndFlush(product);
+            List<ProductVariantDto> variantDtos = mapper.readValue(jsonProductVariants, new TypeReference<List<ProductVariantDto>>(){});
+            for (ProductVariantDto v : variantDtos) {
                 ProductVariant variant = ProductVariant.builder()
                 .product(product)
                 .color(productColorRepository.findById(v.getColorId()).orElseThrow())
@@ -309,32 +310,25 @@ public class ProductService {
         if (newImagesMap != null && jsonNewImagesMetadata != null) {
             // Process new images
             List<ImageMetadataDto> newImageMetadataDtos = mapper.readValue(jsonNewImagesMetadata, new TypeReference<List<ImageMetadataDto>>() {});
-            List<ProductImage> newImages = new ArrayList<>(product.getImages());                // Create new list
-            newImages.addAll(uniteNewImagesWithMetadata(product, newImagesMap, newImageMetadataDtos));    // Add new images to existing ones
-            product.setImages(newImages);                                                       // Save new images
+            product.getImages().addAll(uniteNewImagesWithMetadata(product, newImagesMap, newImageMetadataDtos));
         }
         if (jsonImageColorChanges != null) {
             // Process image color changes
             Map<Long, Long> colorChanges = mapper.readValue(jsonImageColorChanges, new TypeReference<Map<Long, Long>>() {});
-            List<ProductImage> imagesToUpdate = new ArrayList<>(product.getImages());
             for (Map.Entry<Long, Long> entry : colorChanges.entrySet()) {
                 Long imageId = entry.getKey();
                 Long newColorId = entry.getValue();
-                // Find the image to update and change its color
-                for (ProductImage img : imagesToUpdate) {
+                for (ProductImage img : product.getImages()) {
                     if (img.getId().equals(imageId)) {
                         img.setColor(productColorRepository.findById(newColorId).orElseThrow());
                         break;
                     }
                 }
             }
-            product.setImages(imagesToUpdate);
         }
         if (deleteImagesIdsList != null) {
             // Process image deletions
-            List<ProductImage> imagesToUpdate = new ArrayList<>(product.getImages());
-            imagesToUpdate.removeIf(img -> deleteImagesIdsList.contains(img.getId()));
-            product.setImages(imagesToUpdate);
+            product.getImages().removeIf(img -> deleteImagesIdsList.contains(img.getId()));
         }
 
         // Save product
